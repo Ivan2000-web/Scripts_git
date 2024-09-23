@@ -15,16 +15,37 @@ if [ ! -d "$TARGET_DIR" ]; then
     exit 1
 fi
 
-# Получаем список измененных файлов с последнего коммита
-CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+# Получаем список последних 5 коммитов (или меньше, если их меньше пяти)
+COMMITS=$(git log --pretty=format:"%h %s" -n 5)
 
-# Проверяем, есть ли измененные файлы
-if [ -z "$CHANGED_FILES" ]; then
-    echo "Нет измененных файлов с последнего коммита."
+# Проверяем, есть ли коммиты
+if [ -z "$COMMITS" ]; then
+    echo "Нет коммитов в репозитории."
     exit 0
 fi
 
-# Копируем измененные файлы в целевую директорию
+# Выводим список коммитов и предлагаем пользователю выбрать один
+echo "Выберите коммит для копирования файлов:"
+echo "$COMMITS"
+echo -n "Введите хэш коммита: "
+read COMMIT_HASH
+
+# Проверяем, существует ли выбранный коммит
+if ! git rev-parse --quiet --verify "$COMMIT_HASH" > /dev/null; then
+    echo "Коммит с хэшем $COMMIT_HASH не найден."
+    exit 1
+fi
+
+# Получаем список файлов из выбранного коммита
+CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r "$COMMIT_HASH")
+
+# Проверяем, есть ли измененные файлы
+if [ -z "$CHANGED_FILES" ]; then
+    echo "Нет файлов в выбранном коммите."
+    exit 0
+fi
+
+# Копируем файлы из выбранного коммита в целевую директорию
 for FILE in $CHANGED_FILES; do
     # Проверяем, существует ли файл
     if [ -f "$FILE" ]; then
